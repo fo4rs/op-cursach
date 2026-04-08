@@ -1,16 +1,27 @@
 #define _WIN32_IE 0x0600
+
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
 #include <windows.h>
 #include <commctrl.h>
 #include <shlobj.h>
 #include "gui.h"
 #include "search.h"
 
+#ifdef _MSC_VER
 #pragma comment(lib, "comctl32.lib")
 #pragma comment(lib, "comdlg32.lib")
 #pragma comment(lib, "gdi32.lib")
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "ole32.lib")
+#endif
 
 // Глобальные переменные
 static HWND g_hwndMain = NULL;

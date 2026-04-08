@@ -231,22 +231,11 @@ void DisplayResults(HWND hwnd) {
             strncpy(utf8FileName, fileName, MAX_PATH_LEN - 1);
             utf8FileName[MAX_PATH_LEN - 1] = '\0';
             MultiByteToWideUTF8(utf8FileName, wideFileName, MAX_PATH_LEN);
-            
-            // Проверяем, что конвертация прошла успешно
             if (wideFileName[0] == L'\0' && fileName[0] != '\0') {
-                // Если конвертация не удалась, пробуем напрямую
-                int i;
-                for (i = 0; i < MAX_PATH_LEN - 1 && fileName[i] != '\0'; i++) {
-                    wideFileName[i] = (wchar_t)(unsigned char)fileName[i];
-                }
-                wideFileName[i] = L'\0';
+                wcscpy(wideFileName, L"[unreadable filename]");
             }
             if (widePath[0] == L'\0' && utf8Path[0] != '\0') {
-                int i;
-                for (i = 0; i < MAX_PATH_LEN - 1 && utf8Path[i] != '\0'; i++) {
-                    widePath[i] = (wchar_t)(unsigned char)utf8Path[i];
-                }
-                widePath[i] = L'\0';
+                wcscpy(widePath, L"[unreadable path]");
             }
             
             // Добавляем разделитель
@@ -275,15 +264,8 @@ void DisplayResults(HWND hwnd) {
         wchar_t lineNumStr[20];
         
         MultiByteToWideUTF8(current->lineContent, wideContent, MAX_LINE_LEN);
-        
-        // Проверяем конвертацию содержимого
         if (wideContent[0] == L'\0' && current->lineContent[0] != '\0') {
-            // Если конвертация не удалась, пробуем напрямую
-            int i;
-            for (i = 0; i < MAX_LINE_LEN - 1 && current->lineContent[i] != '\0'; i++) {
-                wideContent[i] = (wchar_t)(unsigned char)current->lineContent[i];
-            }
-            wideContent[i] = L'\0';
+            wcscpy(wideContent, L"[unreadable line encoding]");
         }
         
         // Форматируем номер строки
@@ -500,11 +482,7 @@ void ExportResults(HWND hwnd) {
         return; // Пользователь отменил
     }
     
-    // Конвертируем имя файла в UTF-8
-    char utf8Filename[MAX_PATH];
-    WideToMultiByteUTF8(filename, utf8Filename, MAX_PATH);
-    
-    FILE* file = fopen(utf8Filename, "w");
+    FILE* file = _wfopen(filename, L"w, ccs=UTF-8");
     if (!file) {
         MessageBoxW(hwnd, L"Не удалось создать файл!", L"Ошибка", MB_OK | MB_ICONERROR);
         return;

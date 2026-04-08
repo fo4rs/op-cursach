@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -101,10 +102,9 @@ void getFileExtension(const char* filename, char* extension, int maxLen) {
     
     const char* dot = strrchr(filename, '.');
     if (dot && dot != filename) {
-        int len = strlen(dot);
-        if (len < maxLen) {
-            strncpy(extension, dot, len);
-            extension[len] = '\0';
+        int len = (int)strlen(dot);
+        if (len > 0 && len < maxLen) {
+            snprintf(extension, maxLen, "%s", dot);
         } else {
             extension[0] = '\0';
         }
@@ -113,9 +113,34 @@ void getFileExtension(const char* filename, char* extension, int maxLen) {
     }
 }
 
-// Проверка, является ли символ границей слова
-int isWordBoundary(char c) {
-    return !isalnum((unsigned char)c) && c != '_';
+// Проверка границы слова в UTF-8 строке
+// pos - позиция, которую проверяем (начинается с 0)
+int isWordBoundaryUTF8(const char* str, int pos) {
+    if (!str) return 1;
+    if (pos < 0) return 1;  // Начало строки - граница
+    
+    unsigned char c = (unsigned char)str[pos];
+    
+    // Если это ASCII (0-127) - используем простую проверку
+    if (c < 0x80) {
+        return !isalnum(c) && c != '_';
+    }
+    
+    // Для UTF-8 многобайтных символов:
+    // Если c >= 0x80, это либо продолжение (0x80-0xBF), либо начало (0xC0+)
+    // Граница слова - это когда мы переходим ИЗ многобайтного символа В что-то другое
+    // или наоборот.
+    
+    // Проверяем: это продолжение многобайтной последовательности (0x80-0xBF)?
+    if ((c & 0xC0) == 0x80) {
+        // Это продолжение, значит мы внутри многобайтного символа
+        // Это НЕ граница слова
+        return 0;
+    }
+    
+    // Это начало многобайтной последовательности (0xC0-0xFF)
+    // Считаем это словом (для кириллицы и других скриптов)
+    return 0;
 }
 
 // Копирование широких строк в UTF-8
@@ -144,41 +169,31 @@ void MultiByteToWideUTF8(const char* multi, wchar_t* wide, int maxLen) {
     }
     
     int len = 0;
-    
-    // Сначала пробуем UTF-8
-    len = MultiByteToWideChar(CP_UTF8, 0, multi, -1, wide, maxLen);
-    
-    // Проверяем, есть ли невалидные символы (проверяем первый символ результата)
+
+    // Сначала пробуем строгую UTF-8 декодировку.
+    len = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, multi, -1, wide, maxLen);
     if (len > 0 && len < maxLen) {
-        // Проверяем, не содержит ли результат заменяющие символы (обычно это признак ошибки)
-        BOOL hasInvalid = FALSE;
-        for (int i = 0; i < len && i < 10; i++) {
-            if (wide[i] == 0xFFFD || wide[i] == L'?') {
-                // Может быть признаком ошибки, но не всегда
-                break;
-            }
-        }
-        
-        // Если результат выглядит нормально, используем его
-        if (!hasInvalid && wide[0] != 0) {
-            return;
-        }
+        return;
     }
-    
-    // Если UTF-8 не сработал, пробуем Windows-1251 (стандартная кодировка для русских текстов)
-    SetLastError(0);
+
+    // Если UTF-8 не сработал, пробуем Windows-1251 (частый fallback для кириллицы).
     len = MultiByteToWideChar(1251, 0, multi, -1, wide, maxLen);
     if (len > 0 && len < maxLen) {
         return;
     }
-    
-    // Если и это не сработало, пробуем текущую кодовую страницу системы
-    SetLastError(0);
+
+    // Пробуем OEM кодовую страницу (часто CP866 в русских Windows-консолях).
+    len = MultiByteToWideChar(CP_OEMCP, 0, multi, -1, wide, maxLen);
+    if (len > 0 && len < maxLen) {
+        return;
+    }
+
+    // Последний fallback: системная ANSI кодовая страница.
     len = MultiByteToWideChar(CP_ACP, 0, multi, -1, wide, maxLen);
     if (len > 0 && len < maxLen) {
         return;
     }
-    
+
     // Если ничего не сработало, устанавливаем пустую строку
     wide[0] = L'\0';
 }
