@@ -18,40 +18,38 @@ if !MINGW_FOUND! NEQ 0 (
 REM Создаём папку build, если её нет
 if not exist build mkdir build
 
+set CFLAGS=-Wall -O2 -std=c99 -DUNICODE -D_UNICODE -finput-charset=UTF-8 -fexec-charset=UTF-8
+
 echo.
 echo [1/4] Compiling resources...
 set RESOURCE_FILE=
-if exist resources\resource.rc (
-    if exist build\resource.res del build\resource.res
-    windres resources\resource.rc -O coff -o build\resource.res 2>nul
-    if !ERRORLEVEL! EQU 0 (
-        if exist build\resource.res (
-            for %%A in (build\resource.res) do (
-                set RES_SIZE=%%~zA
-            )
-            if defined RES_SIZE (
-                if !RES_SIZE! GTR 0 (
-                    set RESOURCE_FILE=build\resource.res
-                    echo Resources compiled successfully
-                ) else (
-                    echo WARNING: Resource file is empty (can be ignored)
-                    del build\resource.res 2>nul
-                )
-            ) else (
-                echo WARNING: Cannot determine resource file size (can be ignored)
-                del build\resource.res 2>nul
-            )
-        )
-    ) else (
-        echo WARNING: Failed to compile resources (can be ignored)
-        if exist build\resource.res del build\resource.res 2>nul
-    )
-) else (
+if not exist resources\resource.rc (
     echo WARNING: File resources\resource.rc not found (can be ignored)
 )
 
+if exist resources\resource.rc (
+    if exist build\resource.res del build\resource.res
+    where windres >nul 2>nul
+    if !ERRORLEVEL! EQU 0 (
+        windres resources\resource.rc -O coff -o build\resource.res 2>nul
+        if !ERRORLEVEL! EQU 0 if exist build\resource.res (
+            for %%A in (build\resource.res) do set RES_SIZE=%%~zA
+            if defined RES_SIZE if !RES_SIZE! GTR 0 (
+                set RESOURCE_FILE=build\resource.res
+                echo Resources compiled successfully
+            )
+        )
+        if not defined RESOURCE_FILE (
+            echo WARNING: Failed to compile resources (can be ignored)
+            if exist build\resource.res del build\resource.res 2>nul
+        )
+    ) else (
+        echo WARNING: windres not found, resources will be skipped
+    )
+)
+
 echo [2/4] Compiling utils.c...
-gcc -c src\utils.c -o build\utils.o -Wall -O2 -std=c99
+gcc -c src\utils.c -o build\utils.o %CFLAGS%
 set COMPILE_RESULT=!ERRORLEVEL!
 if !COMPILE_RESULT! NEQ 0 (
     echo ERROR compiling utils.c
@@ -60,7 +58,7 @@ if !COMPILE_RESULT! NEQ 0 (
 )
 
 echo [3/4] Compiling search.c...
-gcc -c src\search.c -o build\search.o -Wall -O2 -std=c99
+gcc -c src\search.c -o build\search.o %CFLAGS%
 set COMPILE_RESULT=!ERRORLEVEL!
 if !COMPILE_RESULT! NEQ 0 (
     echo ERROR compiling search.c
@@ -69,7 +67,7 @@ if !COMPILE_RESULT! NEQ 0 (
 )
 
 echo [4/4] Compiling gui.c and main.c...
-gcc -c src\gui.c -o build\gui.o -Wall -O2 -std=c99
+gcc -c src\gui.c -o build\gui.o %CFLAGS%
 set COMPILE_RESULT=!ERRORLEVEL!
 if !COMPILE_RESULT! NEQ 0 (
     echo ERROR compiling gui.c
@@ -77,7 +75,7 @@ if !COMPILE_RESULT! NEQ 0 (
     exit /b 1
 )
 
-gcc -c src\main.c -o build\main.o -Wall -O2 -std=c99
+gcc -c src\main.c -o build\main.o %CFLAGS%
 set COMPILE_RESULT=!ERRORLEVEL!
 if !COMPILE_RESULT! NEQ 0 (
     echo ERROR compiling main.c
@@ -122,12 +120,15 @@ if !LINK_SUCCESS! EQU 1 (
         echo.
         echo WARNING: Executable file not found!
     )
-) else (
-    echo.
-    echo ======================================
-    echo COMPILATION ERROR!
-    echo ======================================
+    goto :end
 )
+
+echo.
+echo ======================================
+echo COMPILATION ERROR!
+echo ======================================
+
+:end
 
 pause
 

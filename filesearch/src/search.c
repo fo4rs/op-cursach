@@ -9,10 +9,35 @@
 #include <fcntl.h>
 #include <windows.h>
 
-// Объявление _wfopen для MinGW (может быть не объявлено в stdio.h)
-#ifdef __MINGW32__
-FILE* _wfopen(const wchar_t* filename, const wchar_t* mode);
-#endif
+// Эвристика: отбрасываем бинарные/плохо декодируемые файлы,
+// чтобы не показывать в результатах "мусор".
+static int isLikelyTextBuffer(const unsigned char* data, size_t len) {
+    if (!data || len == 0) return 1;
+
+    size_t controlCount = 0;
+    size_t highCount = 0;
+    size_t zeroCount = 0;
+
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = data[i];
+        if (c == 0) {
+            zeroCount++;
+            continue;
+        }
+        if (c >= 0x80) {
+            highCount++;
+            continue;
+        }
+        if (c < 0x20 && c != '\n' && c != '\r' && c != '\t' && c != '\f') {
+            controlCount++;
+        }
+    }
+
+    if (zeroCount > 0) return 0;
+    if (controlCount > (len / 20)) return 0; // >5% управляющих символов
+    if (highCount > 0 && controlCount > 0) return 0;
+    return 1;
+}
 
 // Глобальные переменные
 SearchResult* g_searchResults = NULL;
@@ -195,17 +220,25 @@ void searchInFile(const char* filepath, const SearchParams* params) {
     // Используем _wfopen для работы с UTF-8 путями (доступен в MinGW)
     FILE* file = NULL;
     #ifdef __MINGW32__
-    // В MinGW _wfopen доступен через stdio.h при включении правильных заголовков
-    file = _wfopen(widePath, L"r");
+    file = _wfopen(widePath, L"rb");
     #else
     // Альтернатива для других компиляторов
     char mbPath[MAX_PATH_LEN * 2];
     WideCharToMultiByte(CP_ACP, 0, widePath, -1, mbPath, MAX_PATH_LEN * 2, NULL, NULL);
-    file = fopen(mbPath, "r");
+    file = fopen(mbPath, "rb");
     #endif
     if (!file) {
         return; // Не удалось открыть файл
     }
+
+    // Быстрая проверка, что это действительно текстовый файл.
+    unsigned char probe[1024];
+    size_t probeLen = fread(probe, 1, sizeof(probe), file);
+    if (probeLen > 0 && !isLikelyTextBuffer(probe, probeLen)) {
+        fclose(file);
+        return;
+    }
+    rewind(file);
     
     char line[MAX_LINE_LEN];
     int lineNumber = 0;
@@ -276,20 +309,32 @@ void searchInDirectory(const char* path, const SearchParams* params) {
     // Конвертируем UTF-8 путь в широкую строку
     wchar_t widePath[MAX_PATH_LEN];
     MultiByteToWideUTF8(path, widePath, MAX_PATH_LEN);
-    if (widePath[0] == L'\0') return;
+    if (widePath[0] == L'\0') {
+        g_directoryDepth--;
+        return;
+    }
     
     // Формируем маску поиска
     wchar_t searchPattern[MAX_PATH_LEN + 3];
     int len = wcslen(widePath);
-    if (len >= MAX_PATH_LEN - 3) return;
+    if (len <= 0 || len >= MAX_PATH_LEN - 3) {
+        g_directoryDepth--;
+        return;
+    }
     
     wcscpy(searchPattern, widePath);
     if (searchPattern[len - 1] != L'\\' && searchPattern[len - 1] != L'/') {
-        if (len + 1 >= MAX_PATH_LEN - 3) return;
+        if (len + 1 >= MAX_PATH_LEN - 3) {
+            g_directoryDepth--;
+            return;
+        }
         wcscat(searchPattern, L"\\");
         len++;
     }
-    if (len + 1 >= MAX_PATH_LEN - 3) return;
+    if (len + 1 >= MAX_PATH_LEN - 3) {
+        g_directoryDepth--;
+        return;
+    }
     wcscat(searchPattern, L"*");
     
     // Ищем файлы и директории
@@ -297,6 +342,7 @@ void searchInDirectory(const char* path, const SearchParams* params) {
     HANDLE hFind = FindFirstFileW(searchPattern, &findData);
     
     if (hFind == INVALID_HANDLE_VALUE) {
+        g_directoryDepth--;
         return; // Не удалось открыть директорию
     }
     

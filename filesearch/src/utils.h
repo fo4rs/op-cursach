@@ -1,6 +1,14 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
 #include <windows.h>
 
 #define MAX_WORD_LEN 256

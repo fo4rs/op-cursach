@@ -1,6 +1,14 @@
 #ifndef GUI_H
 #define GUI_H
 
+#ifndef UNICODE
+#define UNICODE
+#endif
+
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+
 #include <windows.h>
 #include <commctrl.h>
 #include "search.h"
