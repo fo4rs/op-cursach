@@ -186,8 +186,15 @@ static int findKeywordInLine(const char* line, const char* keyword, int caseSens
         if (wholeWord) {
             // Проверяем, что found находится в пределах строки
             if (found >= line && found + keywordLen <= line + lineLen) {
-                if ((found == line || isWordBoundary(found[-1])) &&
-                    (found[keywordLen] == '\0' || isWordBoundary(found[keywordLen]))) {
+                int posBefore = (found == line) ? -1 : (found - line - 1);
+                int posAfter = found + keywordLen - line;
+                
+                // Граница слова перед совпадением
+                int boundaryBefore = (found == line) || isWordBoundaryUTF8(line, posBefore);
+                // Граница слова после совпадения
+                int boundaryAfter = (found[keywordLen] == '\0') || isWordBoundaryUTF8(line, posAfter);
+                
+                if (boundaryBefore && boundaryAfter) {
                     return 1;
                 }
             }
