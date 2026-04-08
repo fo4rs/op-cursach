@@ -1,0 +1,5 @@
+#include "../src/resource.h"
+
+// Иконка приложения (если есть)
+// IDI_APP_ICON ICON "icon.ico"
+
