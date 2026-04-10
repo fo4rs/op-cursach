@@ -10,12 +10,15 @@
 #endif
 
 #include <windows.h>
+#include <ctype.h> 
 
 #define MAX_WORD_LEN 256
 #define MAX_LINE_LEN 1024
 #define MAX_KEYWORDS 50
 #define MAX_EXTENSIONS 20
 #define MAX_EXT_LEN 20
+
+int isWordBoundary(char c);
 
 // Разбор строки с разделителями (запятая)
 int parseCommaSeparated(const char* input, char output[][MAX_WORD_LEN], int maxItems);
@@ -42,6 +45,9 @@ void MultiByteToWideUTF8(const char* multi, wchar_t* wide, int maxLen);
 // Проверка границы слова в UTF-8 строке
 // Возвращает 1 если это граница (начало нового слова или конец строки)
 int isWordBoundaryUTF8(const char* str, int pos);
+
+// Проверка, является ли символ границей слова
+int isWordBoundary(char c);
 
 #endif // UTILS_H
 
