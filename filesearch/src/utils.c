@@ -4,46 +4,35 @@
 #include <ctype.h>
 
 // Разбор строки с разделителями (запятая)
-int parseCommaSeparated(const char* input, char output[][MAX_WORD_LEN], int maxItems) {
-    if (!input || !output || maxItems <= 0) {
-        return 0;
-    }
-    
+int parseCommaSeparated(const char *input, char output[][MAX_WORD_LEN], int maxItems) {
+    if (!input || !output || maxItems <= 0) return 0;
+
     int count = 0;
-    const char* start = input;
-    const char* current = input;
-    
+    const char *start = input;
+    const char *current = input;
+
+    // Условие *current гарантирует выход при достижении конца строки
     while (*current && count < maxItems) {
-        // Пропускаем пробелы
         while (*current == ' ') current++;
         
-        if (*current == '\0') break;
-        
-        start = current;
-        
-        // Ищем запятую или конец строки
-        while (*current && *current != ',') {
-            current++;
-        }
-        
-        // Копируем элемент
-        int len = current - start;
-        if (len > 0 && len < MAX_WORD_LEN) {
-            strncpy(output[count], start, len);
-            output[count][len] = '\0';
-            trimWhitespace(output[count]);
-            
-            // Добавляем только непустые элементы
-            if (output[count][0] != '\0') {
-                count++;
+        if (*current != '\0') {
+            start = current;
+            while (*current && *current != ',') current++;
+
+            int len = current - start;
+            if (len > 0 && len < MAX_WORD_LEN) {
+                strncpy(output[count], start, len);
+                output[count][len] = '\0';
+                trimWhitespace(output[count]);
+
+                if (output[count][0] != '\0') {
+                    count++;
+                }
             }
-        }
-        
-        if (*current == ',') {
-            current++;
+
+            if (*current == ',') current++;
         }
     }
-    
     return count;
 }
 
@@ -113,36 +102,10 @@ void getFileExtension(const char* filename, char* extension, int maxLen) {
     }
 }
 
-// Проверка границы слова в UTF-8 строке
-// pos - позиция, которую проверяем (начинается с 0)
-int isWordBoundaryUTF8(const char* str, int pos) {
-    if (!str) return 1;
-    if (pos < 0) return 1;  // Начало строки - граница
-    
-    unsigned char c = (unsigned char)str[pos];
-    
-    // Если это ASCII (0-127) - используем простую проверку
-    if (c < 0x80) {
-        return !isalnum(c) && c != '_';
-    }
-    
-    // Для UTF-8 многобайтных символов:
-    // Если c >= 0x80, это либо продолжение (0x80-0xBF), либо начало (0xC0+)
-    // Граница слова - это когда мы переходим ИЗ многобайтного символа В что-то другое
-    // или наоборот.
-    
-    // Проверяем: это продолжение многобайтной последовательности (0x80-0xBF)?
-    if ((c & 0xC0) == 0x80) {
-        // Это продолжение, значит мы внутри многобайтного символа
-        // Это НЕ граница слова
-        return 0;
-    }
-    
-    // Это начало многобайтной последовательности (0xC0-0xFF)
-    // Считаем это словом (для кириллицы и других скриптов)
-    return 0;
+// Проверка, является ли символ границей слова
+int isWordBoundary(char c) {
+    return !isalnum((unsigned char)c) && c != '_';
 }
-
 // Копирование широких строк в UTF-8
 void WideToMultiByteUTF8(const wchar_t* wide, char* multi, int maxLen) {
     if (!wide || !multi || maxLen <= 0) {
